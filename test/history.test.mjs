@@ -136,11 +136,29 @@ test("large patches are visibly truncated and binary diffs stay inspectable", as
   assert.ok(block(binary, "patch").text.includes("Binary files"));
 });
 
-test("thread info view resolves its worktree and contributes no settings page", async t => {
+test("thread info view resolves its worktree and contributes no settings page", async (t) => {
   const dir = await fixture(t);
   const views = contributions(context(dir)).views;
-  assert.deepEqual(views.map(v => v.location), ["thread-panel"]);
+  assert.deepEqual(
+    views.map((v) => v.location),
+    ["thread-panel"],
+  );
   assert.equal(views[0].presentation, "dialog");
-  const view = await Effect.runPromise(views[0].read({threadId:"thread-on-this-environment"}));
-  assert.ok(view.blocks.find(b => b.kind === "graph").nodes.length);
+  assert.equal(views[0].requiresRepository, true);
+  const view = await Effect.runPromise(views[0].read({ threadId: "thread-on-this-environment" }));
+  assert.ok(view.blocks.find((b) => b.kind === "graph").nodes.length);
+});
+
+test("thread projects below the repository root inspect root-relative changed paths", async (t) => {
+  const dir = await fixture(t);
+  const nested = join(dir, "nested-project");
+  await mkdir(nested);
+  const ctx = context(nested);
+  const view = await Effect.runPromise(
+    contributions(ctx).views[0].read({ threadId: "nested-thread" }),
+  );
+  const history = { view };
+  const selected = await browse(ctx, block(history, "commits").nodes[0].action.input);
+  const patch = await browse(ctx, block(selected, "files").rows[0].actions[0].input);
+  assert.ok(block(patch, "patch").text.includes("+original"));
 });

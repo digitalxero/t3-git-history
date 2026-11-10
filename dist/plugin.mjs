@@ -2166,9 +2166,7 @@ var actions = (id, values) => ({ id, kind: "actions", actions: values });
 var page = (title, blocks) => ({ $t3: "view", view: { title, blocks } });
 function contributions(context2) {
   if (!context2.capabilities?.includes("portable-graphs") || !context2.runProcess)
-    throw new Error(
-      "Requires a prototype host with portable-graphs and supervised-processes."
-    );
+    throw new Error("Requires a prototype host with portable-graphs and supervised-processes.");
   async function git(directory, args2, allowTruncated = false) {
     const result2 = await runPromise2(
       context2.runProcess({
@@ -2196,6 +2194,7 @@ function contributions(context2) {
     }
     if (typeof directory !== "string" || !/^(?:\/|[A-Za-z]:[\\/])/.test(directory) || directory.includes("\0") || directory.length > 4096)
       throw new Error("Enter an absolute directory on the selected environment, or its thread ID.");
+    directory = (await git(directory, ["rev-parse", "--show-toplevel"])).stdout.replace(/\n$/, "");
     const common = { directory };
     const back = action("history", "Back to history", common);
     if (input.commit !== void 0) {
@@ -2450,10 +2449,21 @@ Topological history \xB7 lines join each commit to its parents \xB7 lines at the
         title: "History",
         location: "thread-panel",
         presentation: "dialog",
+        requiresRepository: true,
         permission: "filesystem:read",
         read: (input) => tryPromise2(() => browse({ thread: input?.threadId })).pipe(
           map2((result2) => result2.view),
-          catch_2(() => succeed4({ title: "Git history", blocks: [text("error", "History is unavailable for this thread. Its worktree must contain a Git repository with a commit.")] }))
+          catch_2(
+            () => succeed4({
+              title: "Git history",
+              blocks: [
+                text(
+                  "error",
+                  "History is unavailable for this thread. Its worktree must contain a Git repository with a commit."
+                )
+              ]
+            })
+          )
         )
       }
     ]
