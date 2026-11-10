@@ -1,0 +1,4 @@
+T3 Git History is independently authored for T3 Code's public prototype plugin contract.
+No T3 server internals are imported or copied. T3 Code is copyright T3 Tools Inc.
+The built bundle includes Effect 4.1.2, distributed under MIT; its license is
+reproduced in THIRD_PARTY_LICENSES.txt. esbuild is a build-time dependency only.

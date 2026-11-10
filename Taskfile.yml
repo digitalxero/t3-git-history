@@ -1,0 +1,8 @@
+version: '3'
+includes:
+  policy: .repo-policy/Taskfile.yml
+tasks:
+  test:
+    cmds: [npm test]
+  build:
+    cmds: [npm run build, npm run verify]
