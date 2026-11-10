@@ -2449,6 +2449,7 @@ Topological history \xB7 lines join each commit to its parents \xB7 lines at the
         title: "History",
         location: "thread-panel",
         presentation: "dialog",
+        requiresRepository: true,
         permission: "filesystem:read",
         read: (input) => tryPromise2(() => browse({ thread: input?.threadId })).pipe(
           map2((result2) => result2.view),

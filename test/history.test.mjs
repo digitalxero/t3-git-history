@@ -144,6 +144,7 @@ test("thread info view resolves its worktree and contributes no settings page", 
     ["thread-panel"],
   );
   assert.equal(views[0].presentation, "dialog");
+  assert.equal(views[0].requiresRepository, true);
   const view = await Effect.runPromise(views[0].read({ threadId: "thread-on-this-environment" }));
   assert.ok(view.blocks.find((b) => b.kind === "graph").nodes.length);
 });

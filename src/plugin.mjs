@@ -336,6 +336,7 @@ export function contributions(context) {
         title: "History",
         location: "thread-panel",
         presentation: "dialog",
+        requiresRepository: true,
         permission: "filesystem:read",
         read: (input) =>
           Effect.tryPromise(() => browse({ thread: input?.threadId })).pipe(

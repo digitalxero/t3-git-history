@@ -6,6 +6,7 @@ an independent plugin, not an upstream T3 Code feature or endorsement.
 Install `https://github.com/digitalxero/t3-git-history` through Settings → Plugins,
 then open the thread info bar and press **History**. The graph opens in a wide
 dialog using that thread's repository/worktree on its owning environment.
+History appears only when the project/thread has a confirmed Git repository.
 There is no separate plugin settings page or repository-path form.
 
 Browse HEAD, local branches, remote-tracking branches and tags together, or
