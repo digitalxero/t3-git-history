@@ -9,12 +9,9 @@ const action = (id, label, input) => ({ id, label, command: "browse", input });
 const actions = (id, values) => ({ id, kind: "actions", actions: values });
 const page = (title, blocks) => ({ $t3: "view", view: { title, blocks } });
 
-
 export function contributions(context) {
   if (!context.capabilities?.includes("portable-graphs") || !context.runProcess)
-    throw new Error(
-      "Requires a prototype host with portable-graphs and supervised-processes.",
-    );
+    throw new Error("Requires a prototype host with portable-graphs and supervised-processes.");
   async function git(directory, args, allowTruncated = false) {
     const result = await Effect.runPromise(
       context.runProcess({
@@ -47,6 +44,8 @@ export function contributions(context) {
       directory.length > 4096
     )
       throw new Error("Enter an absolute directory on the selected environment, or its thread ID.");
+    // Git reports root-relative file names even when a T3 project is in a subdirectory.
+    directory = (await git(directory, ["rev-parse", "--show-toplevel"])).stdout.replace(/\n$/, "");
     const common = { directory };
     const back = action("history", "Back to history", common);
     if (input.commit !== undefined) {
@@ -79,14 +78,12 @@ export function contributions(context) {
         blocks.push(
           actions(
             "compare",
-            parents
-              .slice(0, 20)
-              .map((p, i) =>
-                action(`compare-${i}`, `Compare parent ${i + 1}: ${short(p)}`, {
-                  ...base,
-                  parent: p,
-                }),
-              ),
+            parents.slice(0, 20).map((p, i) =>
+              action(`compare-${i}`, `Compare parent ${i + 1}: ${short(p)}`, {
+                ...base,
+                parent: p,
+              }),
+            ),
           ),
         );
       if (input.path !== undefined) {
@@ -190,18 +187,16 @@ export function contributions(context) {
           id: "files",
           kind: "table",
           columns: ["Status", "Path"],
-          rows: files
-            .slice(offset, offset + 20)
-            .map((f, i) => ({
-              id: `file-${i}`,
-              cells: [
-                f.status,
-                f.oldPath
-                  ? `${JSON.stringify(f.oldPath)} → ${JSON.stringify(f.path)}`
-                  : JSON.stringify(f.path),
-              ],
-              actions: [action("diff", "Inspect diff", { ...base, ...f })],
-            })),
+          rows: files.slice(offset, offset + 20).map((f, i) => ({
+            id: `file-${i}`,
+            cells: [
+              f.status,
+              f.oldPath
+                ? `${JSON.stringify(f.oldPath)} → ${JSON.stringify(f.path)}`
+                : JSON.stringify(f.path),
+            ],
+            actions: [action("diff", "Inspect diff", { ...base, ...f })],
+          })),
         },
       );
       blocks.push(
@@ -282,14 +277,16 @@ export function contributions(context) {
         ],
       },
       {
-        id: "commits", kind: "graph", label: "Repository history",
+        id: "commits",
+        kind: "graph",
+        label: "Repository history",
         nodes: commits.slice(0, 15).map((c) => ({
           id: c.sha,
-          parents: c.parents.split(" ").filter(Boolean).slice(0,20),
-          label: c.subject.slice(0,200),
-          detail: `${c.author} · ${c.date}`.slice(0,200),
+          parents: c.parents.split(" ").filter(Boolean).slice(0, 20),
+          label: c.subject.slice(0, 200),
+          detail: `${c.author} · ${c.date}`.slice(0, 200),
           annotation: short(c.sha),
-          badges: c.refs ? [c.refs.slice(0,160)] : [],
+          badges: c.refs ? [c.refs.slice(0, 160)] : [],
           action: action("inspect", "Inspect commit", { ...common, commit: c.sha }),
         })),
       },
@@ -340,10 +337,21 @@ export function contributions(context) {
         location: "thread-panel",
         presentation: "dialog",
         permission: "filesystem:read",
-        read: (input) => Effect.tryPromise(() => browse({ thread: input?.threadId })).pipe(
-          Effect.map((result) => result.view),
-          Effect.catch(() => Effect.succeed({ title: "Git history", blocks: [text("error", "History is unavailable for this thread. Its worktree must contain a Git repository with a commit.")] })),
-        ),
+        read: (input) =>
+          Effect.tryPromise(() => browse({ thread: input?.threadId })).pipe(
+            Effect.map((result) => result.view),
+            Effect.catch(() =>
+              Effect.succeed({
+                title: "Git history",
+                blocks: [
+                  text(
+                    "error",
+                    "History is unavailable for this thread. Its worktree must contain a Git repository with a commit.",
+                  ),
+                ],
+              }),
+            ),
+          ),
       },
     ],
   };
