@@ -31,10 +31,10 @@ available to agents with `filesystem:read`; they return the same bounded views.
 - This first release uses an explicit commit → parent table, not colored lanes.
   It adds repository-wide history beyond T3's existing per-commit branch
   comparison. Its portable patch view does not control the builtin diff pane.
-- 15 commits/page, offsets through 10,000, at most 16 KiB of Git output/query,
+- 15 commits/page, offsets through 10,000, at most 8 KiB of Git output/query,
   10 seconds/query. Large messages, histories with very many refs, or changed
   file lists exceeding that bound fail visibly: narrow the ref or use Git.
-  Changed files page 20 at a time. Patches show at most 16,000 characters and
+  Changed files page 20 at a time. Patches show at most 8,000 characters and
   explicitly mark truncation; binary files have Git's binary notice.
 - Merge comparison defaults to the first parent and offers up to 20 parent
   comparisons and eight parent navigation buttons (unusual octopus merges may
