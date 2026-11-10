@@ -1,3 +1,24 @@
+- semver: 0.2.0
+  date: 2026-11-10T11:26:41.61068406-08:00
+  packager: DigitalXero
+  changes:
+    - commit: 87c97f6abdffa40f4fb1676840dd65026f1f1354
+      note: 'feat: open colored history graph from thread info'
+      author:
+        name: Dj Gilcrease
+        email: digitalxero@gmail.com
+      committer:
+        name: Dj Gilcrease
+        email: digitalxero@gmail.com
+      conventional_commit:
+        category: feat
+        scope: ""
+        description: open colored history graph from thread info
+        body: ""
+        footer: []
+        major: false
+        minor: true
+        patch: false
 - semver: 0.1.0
   date: 2026-11-10T10:50:30.55849155-08:00
   packager: DigitalXero
