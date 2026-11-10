@@ -40,9 +40,9 @@ const context = (dir) => ({
       return {
         code: 0,
         timedOut: false,
-        stdout: stdout.slice(0, 16384),
+        stdout: stdout.slice(0, 8192),
         stderr: "",
-        stdoutTruncated: stdout.length > 16384,
+        stdoutTruncated: stdout.length > 8192,
         stderrTruncated: false,
       };
     }),
@@ -131,7 +131,7 @@ test("large patches are visibly truncated and binary diffs stay inspectable", as
   const commit = git(dir, "rev-parse", "HEAD");
   const patch = await browse(ctx, { directory: dir, commit, path: "large.txt" });
   assert.ok(block(patch, "truncated"));
-  assert.ok(block(patch, "patch").text.length <= 16000);
+  assert.ok(block(patch, "patch").text.length <= 8000);
   const binary = await browse(ctx, { directory: dir, commit, path: "binary.bin" });
   assert.ok(block(binary, "patch").text.includes("Binary files"));
 });

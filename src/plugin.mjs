@@ -4,7 +4,7 @@ const hash = (value) => typeof value === "string" && /^(?:[0-9a-f]{40}|[0-9a-f]{
 const integer = (value, max) =>
   Number.isSafeInteger(value ?? 0) && (value ?? 0) >= 0 && (value ?? 0) <= max;
 const short = (value) => value.slice(0, 10);
-const text = (id, value) => ({ id, kind: "text", text: value.slice(0, 16384) });
+const text = (id, value) => ({ id, kind: "text", text: value.slice(0, 8192) });
 const action = (id, label, input) => ({ id, label, command: "browse", input });
 const actions = (id, values) => ({ id, kind: "actions", actions: values });
 const page = (title, blocks) => ({ $t3: "view", view: { title, blocks } });
@@ -157,15 +157,15 @@ export function contributions(context) {
             id: "patch",
             kind: "code",
             text:
-              diff.stdout.slice(0, 16000) ||
+              diff.stdout.slice(0, 8000) ||
               "(No textual patch; the file may be binary or unchanged against this parent.)",
           },
         );
-        if (diff.stdoutTruncated || diff.stdout.length > 16000)
+        if (diff.stdoutTruncated || diff.stdout.length > 8000)
           blocks.push(
             text(
               "truncated",
-              "Patch truncated to 16,000 characters. Use local Git for the full patch.",
+              "Patch truncated to 8,000 characters. Use local Git for the full patch.",
             ),
           );
         return page(`Commit ${short(commit)} · diff`, blocks);
@@ -348,7 +348,7 @@ export function contributions(context) {
                 page("Git history", [
                   text(
                     "error",
-                    "Unable to read history. Check the absolute environment directory/thread ID, ref and object availability. Queries have a 10 second timeout and 16 KiB output limit; narrow the ref for large commits or messages.",
+                    "Unable to read history. Check the absolute environment directory/thread ID, ref and object availability. Queries have a 10 second timeout and 8 KiB output limit; narrow the ref for large commits or messages.",
                   ),
                   ...entry().blocks,
                 ]),

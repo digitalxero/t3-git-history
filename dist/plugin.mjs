@@ -2140,7 +2140,7 @@ var runPromise2 = runPromise;
 var hash2 = (value) => typeof value === "string" && /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/.test(value);
 var integer = (value, max) => Number.isSafeInteger(value ?? 0) && (value ?? 0) >= 0 && (value ?? 0) <= max;
 var short = (value) => value.slice(0, 10);
-var text = (id, value) => ({ id, kind: "text", text: value.slice(0, 16384) });
+var text = (id, value) => ({ id, kind: "text", text: value.slice(0, 8192) });
 var action = (id, label, input) => ({ id, label, command: "browse", input });
 var actions = (id, values) => ({ id, kind: "actions", actions: values });
 var page = (title, blocks) => ({ $t3: "view", view: { title, blocks } });
@@ -2273,14 +2273,14 @@ Parents: ${parents.join(", ") || "(root commit)"}`
           {
             id: "patch",
             kind: "code",
-            text: diff.stdout.slice(0, 16e3) || "(No textual patch; the file may be binary or unchanged against this parent.)"
+            text: diff.stdout.slice(0, 8e3) || "(No textual patch; the file may be binary or unchanged against this parent.)"
           }
         );
-        if (diff.stdoutTruncated || diff.stdout.length > 16e3)
+        if (diff.stdoutTruncated || diff.stdout.length > 8e3)
           blocks.push(
             text(
               "truncated",
-              "Patch truncated to 16,000 characters. Use local Git for the full patch."
+              "Patch truncated to 8,000 characters. Use local Git for the full patch."
             )
           );
         return page(`Commit ${short(commit)} \xB7 diff`, blocks);
@@ -2437,7 +2437,7 @@ ${c.date}`
               page("Git history", [
                 text(
                   "error",
-                  "Unable to read history. Check the absolute environment directory/thread ID, ref and object availability. Queries have a 10 second timeout and 16 KiB output limit; narrow the ref for large commits or messages."
+                  "Unable to read history. Check the absolute environment directory/thread ID, ref and object availability. Queries have a 10 second timeout and 8 KiB output limit; narrow the ref for large commits or messages."
                 ),
                 ...entry().blocks
               ])
