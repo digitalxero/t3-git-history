@@ -2144,22 +2144,58 @@ var text = (id, value) => ({ id, kind: "text", text: value.slice(0, 16384) });
 var action = (id, label, input) => ({ id, label, command: "browse", input });
 var actions = (id, values) => ({ id, kind: "actions", actions: values });
 var page = (title, blocks) => ({ $t3: "view", view: { title, blocks } });
-var entry = () => ({ title: "Git history", blocks: [text("help", "Read-only history on this environment. Enter an absolute repository/worktree directory, or a T3 thread ID to use its current worktree. History includes HEAD, local branches, remote-tracking branches and tags; no fetch is performed."), { id: "open", kind: "form", label: "Open history", command: "browse", input: {}, fields: [{ name: "directory", label: "Repository directory on this environment", kind: "text" }, { name: "thread", label: "Or thread ID on this environment", kind: "text" }] }] });
+var entry = () => ({
+  title: "Git history",
+  blocks: [
+    text(
+      "help",
+      "Read-only history on this environment. Enter an absolute repository/worktree directory, or a T3 thread ID to use its current worktree. History includes HEAD, local branches, remote-tracking branches and tags; no fetch is performed."
+    ),
+    {
+      id: "open",
+      kind: "form",
+      label: "Open history",
+      command: "browse",
+      input: {},
+      fields: [
+        { name: "directory", label: "Repository directory on this environment", kind: "text" },
+        { name: "thread", label: "Or thread ID on this environment", kind: "text" }
+      ]
+    }
+  ]
+});
 function contributions(context2) {
-  if (!context2.capabilities?.includes("portable-view-navigation") || !context2.runProcess) throw new Error("Requires a prototype host with portable-view-navigation and supervised-processes.");
+  if (!context2.capabilities?.includes("portable-view-navigation") || !context2.runProcess)
+    throw new Error(
+      "Requires a prototype host with portable-view-navigation and supervised-processes."
+    );
   async function git(directory, args2, allowTruncated = false) {
-    const result2 = await runPromise2(context2.runProcess({ command: "git", args: ["--no-pager", "--literal-pathspecs", "-c", "color.ui=false", ...args2], cwd: directory, environment: { GIT_OPTIONAL_LOCKS: "0", GIT_TERMINAL_PROMPT: "0" }, timeoutMs: 1e4 }));
-    if (result2.timedOut || result2.code !== 0) throw new Error("Git could not read this repository or object (10 second query limit).");
-    if (result2.stdoutTruncated && !allowTruncated) throw new Error("Git output exceeds the host limit. Narrow the ref or inspect a smaller commit.");
+    const result2 = await runPromise2(
+      context2.runProcess({
+        command: "git",
+        args: ["--no-pager", "--literal-pathspecs", "-c", "color.ui=false", ...args2],
+        cwd: directory,
+        environment: { GIT_OPTIONAL_LOCKS: "0", GIT_TERMINAL_PROMPT: "0" },
+        timeoutMs: 1e4
+      })
+    );
+    if (result2.timedOut || result2.code !== 0)
+      throw new Error("Git could not read this repository or object (10 second query limit).");
+    if (result2.stdoutTruncated && !allowTruncated)
+      throw new Error(
+        "Git output exceeds the host limit. Narrow the ref or inspect a smaller commit."
+      );
     return result2;
   }
   async function browse(input) {
     let directory = input.directory;
     if (input.thread) {
-      if (typeof input.thread !== "string" || !context2.threads) throw new Error("Thread context unavailable.");
+      if (typeof input.thread !== "string" || !context2.threads)
+        throw new Error("Thread context unavailable.");
       directory = (await runPromise2(context2.threads.describe(input.thread))).directory;
     }
-    if (typeof directory !== "string" || !/^(?:\/|[A-Za-z]:[\\/])/.test(directory) || directory.includes("\0") || directory.length > 4096) throw new Error("Enter an absolute directory on the selected environment, or its thread ID.");
+    if (typeof directory !== "string" || !/^(?:\/|[A-Za-z]:[\\/])/.test(directory) || directory.includes("\0") || directory.length > 4096)
+      throw new Error("Enter an absolute directory on the selected environment, or its thread ID.");
     const common = { directory };
     const back = action("history", "Back to history", common);
     if (input.commit !== void 0) {
@@ -2168,27 +2204,101 @@ function contributions(context2) {
       const meta = (await git(directory, ["show", "-s", "--format=%H%x00%P%x00%an%x00%aI%x00%B", commit, "--"])).stdout.split("\0");
       const parents = meta[1].split(" ").filter(Boolean);
       const parent = input.parent ?? parents[0];
-      if (parent !== void 0 && (!hash2(parent) || !parents.includes(parent))) throw new Error("Select a parent of this commit.");
+      if (parent !== void 0 && (!hash2(parent) || !parents.includes(parent)))
+        throw new Error("Select a parent of this commit.");
       const base = { ...common, commit, ...parent ? { parent } : {} };
-      const nav = [back, ...parents.slice(0, 8).map((p, i) => action(`parent-${i}`, `Open parent ${short(p)}`, { ...common, commit: p }))];
-      const blocks = [actions("navigation", nav), text("metadata", `${commit}
+      const nav = [
+        back,
+        ...parents.slice(0, 8).map(
+          (p, i) => action(`parent-${i}`, `Open parent ${short(p)}`, { ...common, commit: p })
+        )
+      ];
+      const blocks = [
+        actions("navigation", nav),
+        text(
+          "metadata",
+          `${commit}
 ${meta[2]} \xB7 ${meta[3]}
 ${meta.slice(4).join("\0")}
-Parents: ${parents.join(", ") || "(root commit)"}`)];
-      if (parents.length > 1) blocks.push(actions("compare", parents.slice(0, 20).map((p, i) => action(`compare-${i}`, `Compare parent ${i + 1}: ${short(p)}`, { ...base, parent: p }))));
+Parents: ${parents.join(", ") || "(root commit)"}`
+        )
+      ];
+      if (parents.length > 1)
+        blocks.push(
+          actions(
+            "compare",
+            parents.slice(0, 20).map(
+              (p, i) => action(`compare-${i}`, `Compare parent ${i + 1}: ${short(p)}`, {
+                ...base,
+                parent: p
+              })
+            )
+          )
+        );
       if (input.path !== void 0) {
-        if (typeof input.path !== "string" || input.path.includes("\0") || input.path.length > 12e3) throw new Error("Invalid file path.");
+        if (typeof input.path !== "string" || input.path.includes("\0") || input.path.length > 12e3)
+          throw new Error("Invalid file path.");
         const paths = [input.path];
         if (input.oldPath !== void 0) {
-          if (typeof input.oldPath !== "string" || input.oldPath.includes("\0") || input.oldPath.length > 12e3) throw new Error("Invalid old path.");
+          if (typeof input.oldPath !== "string" || input.oldPath.includes("\0") || input.oldPath.length > 12e3)
+            throw new Error("Invalid old path.");
           paths.push(input.oldPath);
         }
-        const diff = await git(directory, parent ? ["diff", "--no-ext-diff", "--no-textconv", "--find-renames", parent, commit, "--", ...paths] : ["show", "--format=", "--no-ext-diff", "--no-textconv", "--find-renames", commit, "--", ...paths], true);
-        blocks.push(actions("files", [action("files", "Back to changed files", base)]), text("file", JSON.stringify(input.path)), { id: "patch", kind: "code", text: diff.stdout.slice(0, 16e3) || "(No textual patch; the file may be binary or unchanged against this parent.)" });
-        if (diff.stdoutTruncated || diff.stdout.length > 16e3) blocks.push(text("truncated", "Patch truncated to 16,000 characters. Use local Git for the full patch."));
+        const diff = await git(
+          directory,
+          parent ? [
+            "diff",
+            "--no-ext-diff",
+            "--no-textconv",
+            "--find-renames",
+            parent,
+            commit,
+            "--",
+            ...paths
+          ] : [
+            "show",
+            "--format=",
+            "--no-ext-diff",
+            "--no-textconv",
+            "--find-renames",
+            commit,
+            "--",
+            ...paths
+          ],
+          true
+        );
+        blocks.push(
+          actions("files", [action("files", "Back to changed files", base)]),
+          text("file", JSON.stringify(input.path)),
+          {
+            id: "patch",
+            kind: "code",
+            text: diff.stdout.slice(0, 16e3) || "(No textual patch; the file may be binary or unchanged against this parent.)"
+          }
+        );
+        if (diff.stdoutTruncated || diff.stdout.length > 16e3)
+          blocks.push(
+            text(
+              "truncated",
+              "Patch truncated to 16,000 characters. Use local Git for the full patch."
+            )
+          );
         return page(`Commit ${short(commit)} \xB7 diff`, blocks);
       }
-      const raw2 = (await git(directory, parent ? ["diff", "--name-status", "-z", "--find-renames", parent, commit, "--"] : ["diff-tree", "--root", "--no-commit-id", "-r", "--name-status", "-z", "--find-renames", commit, "--"])).stdout;
+      const raw2 = (await git(
+        directory,
+        parent ? ["diff", "--name-status", "-z", "--find-renames", parent, commit, "--"] : [
+          "diff-tree",
+          "--root",
+          "--no-commit-id",
+          "-r",
+          "--name-status",
+          "-z",
+          "--find-renames",
+          commit,
+          "--"
+        ]
+      )).stdout;
       const parts = raw2.split("\0");
       const files = [];
       for (let i = 0; i < parts.length && parts[i]; ) {
@@ -2201,45 +2311,160 @@ Parents: ${parents.join(", ") || "(root commit)"}`)];
       }
       if (!integer(input.files, 1e4)) throw new Error("Invalid file page.");
       const offset2 = input.files ?? 0;
-      blocks.push(text("comparison", `Compared against ${parent ?? "the empty tree (root commit)"}. ${files.length} changed files. Paths are JSON-quoted to preserve tabs and newlines.`), { id: "files", kind: "table", columns: ["Status", "Path"], rows: files.slice(offset2, offset2 + 20).map((f, i) => ({ id: `file-${i}`, cells: [f.status, f.oldPath ? `${JSON.stringify(f.oldPath)} \u2192 ${JSON.stringify(f.path)}` : JSON.stringify(f.path)], actions: [action("diff", "Inspect diff", { ...base, ...f })] })) });
-      blocks.push(actions("file-pages", [...offset2 > 0 ? [action("previous", "Previous files", { ...base, files: Math.max(0, offset2 - 20) })] : [], ...files.length > offset2 + 20 && offset2 < 1e4 ? [action("next", "Next files", { ...base, files: offset2 + 20 })] : []]));
+      blocks.push(
+        text(
+          "comparison",
+          `Compared against ${parent ?? "the empty tree (root commit)"}. ${files.length} changed files. Paths are JSON-quoted to preserve tabs and newlines.`
+        ),
+        {
+          id: "files",
+          kind: "table",
+          columns: ["Status", "Path"],
+          rows: files.slice(offset2, offset2 + 20).map((f, i) => ({
+            id: `file-${i}`,
+            cells: [
+              f.status,
+              f.oldPath ? `${JSON.stringify(f.oldPath)} \u2192 ${JSON.stringify(f.path)}` : JSON.stringify(f.path)
+            ],
+            actions: [action("diff", "Inspect diff", { ...base, ...f })]
+          }))
+        }
+      );
+      blocks.push(
+        actions("file-pages", [
+          ...offset2 > 0 ? [action("previous", "Previous files", { ...base, files: Math.max(0, offset2 - 20) })] : [],
+          ...files.length > offset2 + 20 && offset2 < 1e4 ? [action("next", "Next files", { ...base, files: offset2 + 20 })] : []
+        ])
+      );
       return page(`Commit ${short(commit)}`, blocks);
     }
     if (!integer(input.offset, 1e4)) throw new Error("Invalid history page.");
     const offset = input.offset ?? 0;
     let ref = input.ref;
     if (ref !== void 0 && ref !== "" && !hash2(ref)) {
-      if (typeof ref !== "string" || !/^(?:HEAD|refs\/(?:heads|tags|remotes)\/.+)$/.test(ref) || ref.includes("\0") || ref.length > 1024) throw new Error("Use HEAD, a full refs/heads, refs/remotes, refs/tags name, or a commit ID.");
+      if (typeof ref !== "string" || !/^(?:HEAD|refs\/(?:heads|tags|remotes)\/.+)$/.test(ref) || ref.includes("\0") || ref.length > 1024)
+        throw new Error(
+          "Use HEAD, a full refs/heads, refs/remotes, refs/tags name, or a commit ID."
+        );
       ref = (await git(directory, ["rev-parse", "--verify", "--end-of-options", `${ref}^{commit}`])).stdout.trim();
       if (!hash2(ref)) throw new Error("Ref does not resolve to a commit.");
     }
     const scope2 = ref ? [ref] : ["HEAD", "--branches", "--remotes", "--tags"];
-    const raw = (await git(directory, ["log", "--topo-order", "--max-count=16", `--skip=${offset}`, "--format=%H%x00%P%x00%an%x00%aI%x00%s%x00%D%x00", ...scope2, "--"])).stdout;
+    const raw = (await git(directory, [
+      "log",
+      "--topo-order",
+      "--max-count=16",
+      `--skip=${offset}`,
+      "--format=%H%x00%P%x00%an%x00%aI%x00%s%x00%D%x00",
+      ...scope2,
+      "--"
+    ])).stdout;
     const fields = raw.split("\0");
     const commits = [];
     for (let i = 0; i + 5 < fields.length; i += 6) {
       const sha = fields[i].trim();
       if (!hash2(sha)) throw new Error("Invalid history output.");
-      commits.push({ sha, parents: fields[i + 1], author: fields[i + 2], date: fields[i + 3], subject: fields[i + 4], refs: fields[i + 5] });
+      commits.push({
+        sha,
+        parents: fields[i + 1],
+        author: fields[i + 2],
+        date: fields[i + 3],
+        subject: fields[i + 4],
+        refs: fields[i + 5]
+      });
     }
     const state = { ...common, ...ref ? { ref } : {} };
     return page("Git history", [
-      text("scope", `${directory}
+      text(
+        "scope",
+        `${directory}
 ${ref ? `Pinned history root: ${ref}` : "HEAD + local branches + remote-tracking branches + tags"}
-Topological order; each row names its direct parents. Hidden T3 checkpoint refs are excluded. All-ref pages are live: branch changes can shift pages; reopen to refresh. Shallow clones contain only available history.`),
-      { id: "filter", kind: "form", label: "Browse ref", command: "browse", input: common, fields: [{ name: "ref", label: "HEAD, full ref name, or commit ID (empty = all branches/tags)", kind: "text", value: ref ?? "" }] },
-      { id: "commits", kind: "table", columns: ["Commit \u2192 parents", "Refs", "Message", "Author / date"], rows: commits.slice(0, 15).map((c) => ({ id: c.sha, cells: [`${short(c.sha)} \u2192 ${c.parents.split(" ").filter(Boolean).map(short).join(", ") || "(root)"}`, c.refs, c.subject, `${c.author}
-${c.date}`], actions: [action("inspect", "Inspect", { ...common, commit: c.sha })] })) },
-      text("count", `${commits.length ? offset + 1 : 0}\u2013${offset + Math.min(commits.length, 15)} \xB7 15 commits per page \xB7 first 10,015 commits accessible. Empty repositories have no HEAD; commit once to browse.`),
-      actions("pages", [action("first", "Newest", state), ...offset > 0 ? [action("previous", "Previous", { ...state, offset: Math.max(0, offset - 15) })] : [], ...commits.length > 15 && offset + 15 <= 1e4 ? [action("next", "Older", { ...state, offset: offset + 15 })] : []])
+Topological order; each row names its direct parents. Hidden T3 checkpoint refs are excluded. All-ref pages are live: branch changes can shift pages; reopen to refresh. Shallow clones contain only available history.`
+      ),
+      {
+        id: "filter",
+        kind: "form",
+        label: "Browse ref",
+        command: "browse",
+        input: common,
+        fields: [
+          {
+            name: "ref",
+            label: "HEAD, full ref name, or commit ID (empty = all branches/tags)",
+            kind: "text",
+            value: ref ?? ""
+          }
+        ]
+      },
+      {
+        id: "commits",
+        kind: "table",
+        columns: ["Commit \u2192 parents", "Refs", "Message", "Author / date"],
+        rows: commits.slice(0, 15).map((c) => ({
+          id: c.sha,
+          cells: [
+            `${short(c.sha)} \u2192 ${c.parents.split(" ").filter(Boolean).map(short).join(", ") || "(root)"}`,
+            c.refs,
+            c.subject,
+            `${c.author}
+${c.date}`
+          ],
+          actions: [action("inspect", "Inspect", { ...common, commit: c.sha })]
+        }))
+      },
+      text(
+        "count",
+        `${commits.length ? offset + 1 : 0}\u2013${offset + Math.min(commits.length, 15)} \xB7 15 commits per page \xB7 first 10,015 commits accessible. Empty repositories have no HEAD; commit once to browse.`
+      ),
+      actions("pages", [
+        action("first", "Newest", state),
+        ...offset > 0 ? [action("previous", "Previous", { ...state, offset: Math.max(0, offset - 15) })] : [],
+        ...commits.length > 15 && offset + 15 <= 1e4 ? [action("next", "Older", { ...state, offset: offset + 15 })] : []
+      ])
     ]);
   }
   return {
-    commands: [{ id: "browse", title: "Browse repository history", description: "Read bounded repository history, commit parents, changed files and patches. Accepts an absolute environment directory or thread ID.", permission: "filesystem:read", agent: true, run: (input) => tryPromise2(() => browse(input)).pipe(catch_2(() => succeed4(page("Git history", [text("error", "Unable to read history. Check the absolute environment directory/thread ID, ref and object availability. Queries have a 10 second timeout and 16 KiB output limit; narrow the ref for large commits or messages."), ...entry().blocks])))) }],
-    views: [{ id: "history", title: "Git history", location: "settings-page", permission: "filesystem:read", read: () => succeed4(entry()) }]
+    commands: [
+      {
+        id: "browse",
+        title: "Browse repository history",
+        description: "Read bounded repository history, commit parents, changed files and patches. Accepts an absolute environment directory or thread ID.",
+        permission: "filesystem:read",
+        agent: true,
+        run: (input) => tryPromise2(() => browse(input)).pipe(
+          catch_2(
+            () => succeed4(
+              page("Git history", [
+                text(
+                  "error",
+                  "Unable to read history. Check the absolute environment directory/thread ID, ref and object availability. Queries have a 10 second timeout and 16 KiB output limit; narrow the ref for large commits or messages."
+                ),
+                ...entry().blocks
+              ])
+            )
+          )
+        )
+      }
+    ],
+    views: [
+      {
+        id: "history",
+        title: "Git history",
+        location: "settings-page",
+        permission: "filesystem:read",
+        read: () => succeed4(entry())
+      }
+    ]
   };
 }
-var plugin_default = { apiVersion: 1, id: "git-history", name: "Git history", version: "0.1.0", description: "Read-only repository-wide history and commit relationships.", activate: (context2) => sync2(() => contributions(context2)) };
+var plugin_default = {
+  apiVersion: 1,
+  id: "git-history",
+  name: "Git history",
+  version: "0.1.0",
+  description: "Read-only repository-wide history and commit relationships.",
+  activate: (context2) => sync2(() => contributions(context2))
+};
 export {
   contributions,
   plugin_default as default
