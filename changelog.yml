@@ -1,0 +1,21 @@
+- semver: 0.1.0
+  date: 2026-11-10T10:50:30.55849155-08:00
+  packager: DigitalXero
+  changes:
+    - commit: abbbfcd87bb3cd3e495fe90345260f1094ef22ab
+      note: 'feat: add read-only Git history explorer'
+      author:
+        name: Dj Gilcrease
+        email: digitalxero@gmail.com
+      committer:
+        name: Dj Gilcrease
+        email: digitalxero@gmail.com
+      conventional_commit:
+        category: feat
+        scope: ""
+        description: add read-only Git history explorer
+        body: ""
+        footer: []
+        major: false
+        minor: true
+        patch: false
