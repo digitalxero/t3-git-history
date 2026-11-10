@@ -8,31 +8,12 @@ const text = (id, value) => ({ id, kind: "text", text: value.slice(0, 8192) });
 const action = (id, label, input) => ({ id, label, command: "browse", input });
 const actions = (id, values) => ({ id, kind: "actions", actions: values });
 const page = (title, blocks) => ({ $t3: "view", view: { title, blocks } });
-const entry = () => ({
-  title: "Git history",
-  blocks: [
-    text(
-      "help",
-      "Read-only history on this environment. Enter an absolute repository/worktree directory, or a T3 thread ID to use its current worktree. History includes HEAD, local branches, remote-tracking branches and tags; no fetch is performed.",
-    ),
-    {
-      id: "open",
-      kind: "form",
-      label: "Open history",
-      command: "browse",
-      input: {},
-      fields: [
-        { name: "directory", label: "Repository directory on this environment", kind: "text" },
-        { name: "thread", label: "Or thread ID on this environment", kind: "text" },
-      ],
-    },
-  ],
-});
+
 
 export function contributions(context) {
-  if (!context.capabilities?.includes("portable-view-navigation") || !context.runProcess)
+  if (!context.capabilities?.includes("portable-graphs") || !context.runProcess)
     throw new Error(
-      "Requires a prototype host with portable-view-navigation and supervised-processes.",
+      "Requires a prototype host with portable-graphs and supervised-processes.",
     );
   async function git(directory, args, allowTruncated = false) {
     const result = await Effect.runPromise(
@@ -283,7 +264,7 @@ export function contributions(context) {
     return page("Git history", [
       text(
         "scope",
-        `${directory}\n${ref ? `Pinned history root: ${ref}` : "HEAD + local branches + remote-tracking branches + tags"}\nTopological order; each row names its direct parents. Hidden T3 checkpoint refs are excluded. All-ref pages are live: branch changes can shift pages; reopen to refresh. Shallow clones contain only available history.`,
+        `${directory}\n${ref ? `Pinned history root: ${ref}` : "HEAD + local branches + remote-tracking branches + tags"}\nTopological history · lines join each commit to its parents · lines at the bottom continue beyond this page. All-ref pages are live; selected refs are pinned.`,
       ),
       {
         id: "filter",
@@ -301,21 +282,16 @@ export function contributions(context) {
         ],
       },
       {
-        id: "commits",
-        kind: "table",
-        columns: ["Commit → parents", "Refs", "Message", "Author / date"],
-        rows: commits
-          .slice(0, 15)
-          .map((c) => ({
-            id: c.sha,
-            cells: [
-              `${short(c.sha)} → ${c.parents.split(" ").filter(Boolean).map(short).join(", ") || "(root)"}`,
-              c.refs,
-              c.subject,
-              `${c.author}\n${c.date}`,
-            ],
-            actions: [action("inspect", "Inspect", { ...common, commit: c.sha })],
-          })),
+        id: "commits", kind: "graph", label: "Repository history",
+        nodes: commits.slice(0, 15).map((c) => ({
+          id: c.sha,
+          parents: c.parents.split(" ").filter(Boolean).slice(0,20),
+          label: c.subject.slice(0,200),
+          detail: `${c.author} · ${c.date}`.slice(0,200),
+          annotation: short(c.sha),
+          badges: c.refs ? [c.refs.slice(0,160)] : [],
+          action: action("inspect", "Inspect commit", { ...common, commit: c.sha }),
+        })),
       },
       text(
         "count",
@@ -350,7 +326,7 @@ export function contributions(context) {
                     "error",
                     "Unable to read history. Check the absolute environment directory/thread ID, ref and object availability. Queries have a 10 second timeout and 8 KiB output limit; narrow the ref for large commits or messages.",
                   ),
-                  ...entry().blocks,
+                  actions("retry", [action("retry", "Try again", input)]),
                 ]),
               ),
             ),
@@ -360,10 +336,14 @@ export function contributions(context) {
     views: [
       {
         id: "history",
-        title: "Git history",
-        location: "settings-page",
+        title: "History",
+        location: "thread-panel",
+        presentation: "dialog",
         permission: "filesystem:read",
-        read: () => Effect.succeed(entry()),
+        read: (input) => Effect.tryPromise(() => browse({ thread: input?.threadId })).pipe(
+          Effect.map((result) => result.view),
+          Effect.catch(() => Effect.succeed({ title: "Git history", blocks: [text("error", "History is unavailable for this thread. Its worktree must contain a Git repository with a commit.")] })),
+        ),
       },
     ],
   };
@@ -372,7 +352,7 @@ export default {
   apiVersion: 1,
   id: "git-history",
   name: "Git history",
-  version: "0.1.0",
+  version: "0.2.0",
   description: "Read-only repository-wide history and commit relationships.",
   activate: (context) => Effect.sync(() => contributions(context)),
 };

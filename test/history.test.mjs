@@ -25,7 +25,7 @@ async function fixture(t) {
   return dir;
 }
 const context = (dir) => ({
-  capabilities: ["portable-view-navigation"],
+  capabilities: ["portable-view-navigation", "portable-graphs"],
   threads: { describe: () => Effect.succeed({ directory: dir }) },
   runProcess: (input) =>
     Effect.sync(() => {
@@ -74,9 +74,9 @@ test("repository-wide refs, merge parents, root diffs and renamed unusual paths 
   const status = git(dir, "status", "--porcelain=v1");
   const refs = git(dir, "show-ref");
   const history = await browse(ctx, { thread: "example" });
-  assert.equal(block(history, "commits").rows.length, 5);
+  assert.equal(block(history, "commits").nodes.length, 5);
   assert.ok(JSON.stringify(history).includes("tag: v-test"));
-  assert.ok(block(history, "commits").rows.some((r) => r.id === side));
+  assert.ok(block(history, "commits").nodes.some((r) => r.id === side));
   const selected = await browse(ctx, { directory: dir, commit: merge });
   assert.equal(block(selected, "compare").actions.length, 2);
   const compared = await browse(ctx, block(selected, "compare").actions[1].input);
@@ -99,14 +99,14 @@ test("bounded history paging, pinned ref selection and independent clients", asy
   const ctx = context(dir);
   for (let i = 0; i < 18; i++) git(dir, "commit", "--allow-empty", "-m", `feat: item ${i}`);
   const first = await browse(ctx, { directory: dir });
-  assert.equal(block(first, "commits").rows.length, 15);
+  assert.equal(block(first, "commits").nodes.length, 15);
   const older = block(first, "pages").actions.find((a) => a.id === "next");
   assert.ok(older);
   const second = await browse(ctx, older.input);
-  assert.equal(block(second, "commits").rows.length, 4);
+  assert.equal(block(second, "commits").nodes.length, 4);
   assert.equal(
-    block(await browse(ctx, { directory: dir }), "commits").rows[0].id,
-    block(first, "commits").rows[0].id,
+    block(await browse(ctx, { directory: dir }), "commits").nodes[0].id,
+    block(first, "commits").nodes[0].id,
   );
   const pinned = await browse(ctx, { directory: dir, ref: "refs/heads/main" });
   assert.ok(block(pinned, "scope").text.includes("Pinned history root:"));
@@ -134,4 +134,13 @@ test("large patches are visibly truncated and binary diffs stay inspectable", as
   assert.ok(block(patch, "patch").text.length <= 8000);
   const binary = await browse(ctx, { directory: dir, commit, path: "binary.bin" });
   assert.ok(block(binary, "patch").text.includes("Binary files"));
+});
+
+test("thread info view resolves its worktree and contributes no settings page", async t => {
+  const dir = await fixture(t);
+  const views = contributions(context(dir)).views;
+  assert.deepEqual(views.map(v => v.location), ["thread-panel"]);
+  assert.equal(views[0].presentation, "dialog");
+  const view = await Effect.runPromise(views[0].read({threadId:"thread-on-this-environment"}));
+  assert.ok(view.blocks.find(b => b.kind === "graph").nodes.length);
 });
