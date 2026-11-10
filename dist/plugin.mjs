@@ -412,7 +412,7 @@ function compareHashed(self, that, hashOf, equivalent) {
   }
   return remaining === 0;
 }
-var entryHash = (entry2) => hash(entry2[0]);
+var entryHash = (entry) => hash(entry[0]);
 var equalEntries = (self, that) => compareBoth(self[0], that[0]) && compareBoth(self[1], that[1]);
 var isEqual = (u) => hasProperty(u, symbol2) && typeof u[symbol2] === "function";
 
@@ -1212,17 +1212,17 @@ var makeImpl = (cacheRoot, base, overlay, depth, maxDepth) => {
   self.maxDepth = maxDepth;
   return self;
 };
-var applyOverlays = (map2, overlay) => {
+var applyOverlays = (map3, overlay) => {
   if (!overlay) return;
-  applyOverlays(map2, overlay.parent);
-  map2.set(overlay.key, overlay.value);
+  applyOverlays(map3, overlay.parent);
+  map3.set(overlay.key, overlay.value);
 };
 var flatten = (self) => {
   if (self._flat) return self._flat;
   if (!self.overlay) return self._flat = self.base;
-  const map2 = new Map(self.base);
-  applyOverlays(map2, self.overlay);
-  return self._flat = map2;
+  const map3 = new Map(self.base);
+  applyOverlays(map3, self.overlay);
+  return self._flat = map3;
 };
 var notFound = /* @__PURE__ */ Symbol();
 var lookup = (self, key) => {
@@ -1285,10 +1285,10 @@ var addUnsafe = (self, key, service2) => {
   const impl = self;
   const cacheRoot = cacheKeys.has(key) ? void 0 : impl.cacheRoot;
   if (impl.depth >= impl.maxDepth) {
-    const map2 = new Map(impl._flat ?? impl.base);
-    if (!impl._flat) applyOverlays(map2, impl.overlay);
-    map2.set(key, service2);
-    return makeImpl(cacheRoot, map2, void 0, 0, impl.maxDepth);
+    const map3 = new Map(impl._flat ?? impl.base);
+    if (!impl._flat) applyOverlays(map3, impl.overlay);
+    map3.set(key, service2);
+    return makeImpl(cacheRoot, map3, void 0, 0, impl.maxDepth);
   }
   return makeImpl(cacheRoot, impl.base, {
     key,
@@ -1935,11 +1935,30 @@ var ContImpl = function(self, cont, payload) {
   this.payload = payload;
 };
 ContImpl.prototype = OnSuccessProto;
+var continuationMarksStack = /* @__PURE__ */ (() => {
+  const limit = /* @__PURE__ */ getStackTraceLimit();
+  if (limit === 0) return false;
+  const marker = "~effect/Effect/stackProbe";
+  const probe = {
+    [marker]: function stackProbe() {
+      return new Error();
+    }
+  };
+  setStackTraceLimit(1);
+  const error = /* @__PURE__ */ probe[marker]();
+  setStackTraceLimit(limit);
+  return error.stack?.includes("[as " + marker + "]") === true;
+})();
+var mapCont = function(value, fiber2) {
+  const f = this.payload;
+  return fiber2.succeedWith(continuationMarksStack ? f(value) : internalCall(() => f(value)));
+};
 var andThenCont = function(value) {
   const f = this.payload;
   return f(value);
 };
 var flatMap = /* @__PURE__ */ dual(2, (self, f) => new ContImpl(self, andThenCont, f));
+var map = /* @__PURE__ */ dual(2, (self, f) => new ContImpl(self, mapCont, f));
 var exitIsSuccess = (self) => self._tag === "Success";
 var exitVoid = /* @__PURE__ */ exitSucceed(void 0);
 var catchCause = /* @__PURE__ */ dual(2, (self, f) => new OnFailureImpl(self, f.length !== 1 ? (cause) => f(cause) : f));
@@ -2133,6 +2152,7 @@ var logLevelColors = {
 var tryPromise2 = tryPromise;
 var succeed4 = succeed3;
 var sync2 = sync;
+var map2 = map;
 var catch_2 = catch_;
 var runPromise2 = runPromise;
 
@@ -2144,30 +2164,10 @@ var text = (id, value) => ({ id, kind: "text", text: value.slice(0, 8192) });
 var action = (id, label, input) => ({ id, label, command: "browse", input });
 var actions = (id, values) => ({ id, kind: "actions", actions: values });
 var page = (title, blocks) => ({ $t3: "view", view: { title, blocks } });
-var entry = () => ({
-  title: "Git history",
-  blocks: [
-    text(
-      "help",
-      "Read-only history on this environment. Enter an absolute repository/worktree directory, or a T3 thread ID to use its current worktree. History includes HEAD, local branches, remote-tracking branches and tags; no fetch is performed."
-    ),
-    {
-      id: "open",
-      kind: "form",
-      label: "Open history",
-      command: "browse",
-      input: {},
-      fields: [
-        { name: "directory", label: "Repository directory on this environment", kind: "text" },
-        { name: "thread", label: "Or thread ID on this environment", kind: "text" }
-      ]
-    }
-  ]
-});
 function contributions(context2) {
-  if (!context2.capabilities?.includes("portable-view-navigation") || !context2.runProcess)
+  if (!context2.capabilities?.includes("portable-graphs") || !context2.runProcess)
     throw new Error(
-      "Requires a prototype host with portable-view-navigation and supervised-processes."
+      "Requires a prototype host with portable-graphs and supervised-processes."
     );
   async function git(directory, args2, allowTruncated = false) {
     const result2 = await runPromise2(
@@ -2379,7 +2379,7 @@ Parents: ${parents.join(", ") || "(root commit)"}`
         "scope",
         `${directory}
 ${ref ? `Pinned history root: ${ref}` : "HEAD + local branches + remote-tracking branches + tags"}
-Topological order; each row names its direct parents. Hidden T3 checkpoint refs are excluded. All-ref pages are live: branch changes can shift pages; reopen to refresh. Shallow clones contain only available history.`
+Topological history \xB7 lines join each commit to its parents \xB7 lines at the bottom continue beyond this page. All-ref pages are live; selected refs are pinned.`
       ),
       {
         id: "filter",
@@ -2398,18 +2398,16 @@ Topological order; each row names its direct parents. Hidden T3 checkpoint refs 
       },
       {
         id: "commits",
-        kind: "table",
-        columns: ["Commit \u2192 parents", "Refs", "Message", "Author / date"],
-        rows: commits.slice(0, 15).map((c) => ({
+        kind: "graph",
+        label: "Repository history",
+        nodes: commits.slice(0, 15).map((c) => ({
           id: c.sha,
-          cells: [
-            `${short(c.sha)} \u2192 ${c.parents.split(" ").filter(Boolean).map(short).join(", ") || "(root)"}`,
-            c.refs,
-            c.subject,
-            `${c.author}
-${c.date}`
-          ],
-          actions: [action("inspect", "Inspect", { ...common, commit: c.sha })]
+          parents: c.parents.split(" ").filter(Boolean).slice(0, 20),
+          label: c.subject.slice(0, 200),
+          detail: `${c.author} \xB7 ${c.date}`.slice(0, 200),
+          annotation: short(c.sha),
+          badges: c.refs ? [c.refs.slice(0, 160)] : [],
+          action: action("inspect", "Inspect commit", { ...common, commit: c.sha })
         }))
       },
       text(
@@ -2439,7 +2437,7 @@ ${c.date}`
                   "error",
                   "Unable to read history. Check the absolute environment directory/thread ID, ref and object availability. Queries have a 10 second timeout and 8 KiB output limit; narrow the ref for large commits or messages."
                 ),
-                ...entry().blocks
+                actions("retry", [action("retry", "Try again", input)])
               ])
             )
           )
@@ -2449,10 +2447,14 @@ ${c.date}`
     views: [
       {
         id: "history",
-        title: "Git history",
-        location: "settings-page",
+        title: "History",
+        location: "thread-panel",
+        presentation: "dialog",
         permission: "filesystem:read",
-        read: () => succeed4(entry())
+        read: (input) => tryPromise2(() => browse({ thread: input?.threadId })).pipe(
+          map2((result2) => result2.view),
+          catch_2(() => succeed4({ title: "Git history", blocks: [text("error", "History is unavailable for this thread. Its worktree must contain a Git repository with a commit.")] }))
+        )
       }
     ]
   };
@@ -2461,7 +2463,7 @@ var plugin_default = {
   apiVersion: 1,
   id: "git-history",
   name: "Git history",
-  version: "0.1.0",
+  version: "0.2.0",
   description: "Read-only repository-wide history and commit relationships.",
   activate: (context2) => sync2(() => contributions(context2))
 };
